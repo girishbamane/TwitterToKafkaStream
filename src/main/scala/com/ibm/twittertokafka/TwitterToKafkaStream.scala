@@ -1,6 +1,10 @@
 package com.ibm.twittertokafka
 
 
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.util.Locale
+
 import org.apache.log4j.{Level, LogManager, Logger}
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.twitter.TwitterUtils
@@ -32,10 +36,15 @@ object TwitterToKafkaStream {
       rdd.foreach { ele =>
         var hashTagEntityArray = ele.getHashtagEntities
         hashTagEntityArray.foreach { hashTag =>
-          if (isAboutApple(hashTag.getText)) {
-            KafkaProducerRaw.sendRecordToKafka(ele.getCreatedAt.toString, hashTag.getText, ele.getText.replaceAll("\n", " "))
-            logger.info(s"RawTweet : $ele HashTag: ${hashTag.getText} Text : ${ele.getText}")
-          }
+          //if (isAboutApple(hashTag.getText)) {
+          val formatedDate = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZZZ yyyy",Locale.ENGLISH)
+            .parse(ele.getCreatedAt.toString))
+          KafkaProducerRaw.sendRecordToKafka(formatedDate, hashTag.getText, ele.getText.replaceAll("\n", " "))
+            //logger.info(s"RawTweet : $ele HashTag: ${hashTag.getText} Text : ${ele.getText}")
+            println("abcd created at "+ele.getCreatedAt + " Current time "+ LocalDateTime.now())
+            println("Parsed date : "+ new SimpleDateFormat("dd/MM/yyyy HH:mm:ss ").format(new SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZZZ yyyy",Locale.ENGLISH)
+            .parse(ele.getCreatedAt.toString)))
+          //}
         }
       }
     }

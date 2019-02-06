@@ -1,5 +1,4 @@
-package com.ibm.twittertokafka
-
+package real.time.twittertokafka
 
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
@@ -16,6 +15,7 @@ object TwitterToKafkaStream {
   var logger = Logger.getLogger(this.getClass.getName)
 
   def main(args: Array[String]): Unit = {
+    println("Started Real Time Data Flow")
     val appName = "TwitterDAtaAnalysis12202018"
     val consumerKey = "wUMY7vQJ69GuIhNEsZSjbnwT5"
     val consumerSecret = "XDzw6m6ijATcFniILLZJc2A5vNHM5cvIdwnYPKVkLGO8AXjZFI"
@@ -24,6 +24,7 @@ object TwitterToKafkaStream {
     val conf = new SparkConf()
     conf.setAppName(appName).setMaster("local[4]")
     val ssc = new StreamingContext(conf, Seconds(2))
+    var acc = ssc.sparkContext.longAccumulator
     val configurationBuilder = new ConfigurationBuilder()
     configurationBuilder.setDebugEnabled(true)
       .setOAuthConsumerKey(consumerKey)
@@ -32,21 +33,33 @@ object TwitterToKafkaStream {
       .setOAuthAccessTokenSecret(accessSecret)
     val authenticate = new OAuthAuthorization(configurationBuilder.build())
     val stream = TwitterUtils.createStream(ssc, Some(authenticate)).filter(_.getLang() == "en").filter(_.getText.toString.contains("#"))
-    stream.foreachRDD { rdd => {
+    stream.foreachRDD { rdd => if(rdd.count()>0){
+      acc.add(1.toLong)
+      var myvar = acc.value.toLong
+      var rddsize = rdd.count().toInt
+      println("acc : "+acc.value+". "+rddsize)
+
       rdd.foreach { ele =>
+
         var hashTagEntityArray = ele.getHashtagEntities
         hashTagEntityArray.foreach { hashTag =>
           //if (isAboutApple(hashTag.getText)) {
           val formatedDate = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(new SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZZZ yyyy",Locale.ENGLISH)
             .parse(ele.getCreatedAt.toString))
-          KafkaProducerRaw.sendRecordToKafka(formatedDate, hashTag.getText, ele.getText.replaceAll("\n", " "))
+          println("ele "+acc+". "+rddsize+". "+myvar+". "+formatedDate)
+          KafkaProducerRaw.sendRecordToKafka(acc.value+". "+rddsize+". "+myvar+". "+formatedDate, hashTag.getText, ele.getText.replaceAll("\n", " "))
             //logger.info(s"RawTweet : $ele HashTag: ${hashTag.getText} Text : ${ele.getText}")
-            println("abcd created at "+ele.getCreatedAt + " Current time "+ LocalDateTime.now())
-            println("Parsed date : "+ new SimpleDateFormat("dd/MM/yyyy HH:mm:ss ").format(new SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZZZ yyyy",Locale.ENGLISH)
-            .parse(ele.getCreatedAt.toString)))
+
+
+         // println("abcd created at "+ele.getCreatedAt + " Current time "+ LocalDateTime.now())
+          //  println("Parsed date : "+ new SimpleDateFormat("dd/MM/yyyy HH:mm:ss ").format(new SimpleDateFormat("EEE MMM dd HH:mm:ss ZZZZZ yyyy",Locale.ENGLISH)
+            //.parse(ele.getCreatedAt.toString)))
           //}
         }
+
       }
+
+
     }
     }
 
